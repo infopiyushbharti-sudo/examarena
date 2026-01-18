@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ExamArena • Mission 2026</title>
+  <!-- ✅ FIXED: No trailing spaces in Firebase URLs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #f8fafc;
+      min-height: 100vh;
+      font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+      color: #1e293b;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+    header {
+      text-align: center;
+      margin: 30px 0 35px;
+    }
+    .logo {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: #1e40af;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .tagline {
+      color: #475569;
+      font-size: 1.2rem;
+      max-width: 650px;
+      margin: 0 auto 15px;
+      line-height: 1.6;
+    }
+    .mission-badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      border: 1px solid #bfdbfe;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin: 20px auto;
+      max-width: 600px;
+      justify-content: center;
+    }
+    .search {
+      flex: 1;
+      padding: 12px 20px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      outline: none;
+    }
+    .search:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .mode-toggle {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      color: #64748b;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .mode-toggle:hover {
+      background: #e2e8f0;
+      color: #3b82f6;
+    }
+
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 28px;
+      margin-top: 20px;
+    }
+    .category-card {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      border: 1px solid #e2e8f0;
+    }
+    .category-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+      border-color: #cbd5e1;
+    }
+    .category-img {
+      height: 140px;
+      width: 100%;
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+      font-size: 1.1rem;
+      background-color: #dbeafe;
+    }
+    .category-info {
+      padding: 22px;
+      text-align: center;
+    }
+    .category-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 12px;
+    }
+    .category-meta {
+      color: #64748b;
+      font-size: 0.95rem;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .start-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .start-btn:hover {
+      background: #2563eb;
+    }
+    .start-btn.green {
+      background: #10b981;
+    }
+    .start-btn.green:hover {
+      background: #059669;
+    }
+
+    .skeleton {
+      background: #f1f5f9;
+      border-radius: 16px;
+      height: 220px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { opacity: 0.8; }
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 25px 0;
+      padding: 0 10px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .test-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #1e40af;
+    }
+    #timerDisplay {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #dc2626;
+    }
+    .progress-bar {
+      width: 100%;
+      max-width: 140px;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 8px auto 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #3b82f6;
+      transition: width 0.3s ease;
+    }
+
+    .question-card {
+      background: white;
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+      margin: 28px 0;
+      border: 1px solid #e2e8f0;
+    }
+    .question-number {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+    .test-question {
+      font-size: 1.5rem;
+      line-height: 1.55;
+      margin-bottom: 28px;
+      color: #1e293b;
+      font-weight: 600;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    .option-card {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 1.1rem;
+    }
+    .option-card:hover {
+      border-color: #3b82f6;
+      background: #f1f5f9;
+    }
+    .option-card.selected {
+      border-color: #3b82f6;
+      background: #dbeafe;
+    }
+    .option-letter {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #3b82f6;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .option-card.selected .option-letter {
+      background: white;
+      color: #3b82f6;
+      border: 2px solid #3b82f6;
+    }
+
+    .option-card.correct {
+      background: #dcfce7 !important;
+      border-color: #22c55e !important;
+    }
+    .option-card.correct .option-letter {
+      background: #22c55e !important;
+      color: white !important;
+      border: none !important;
+    }
+    .option-card.incorrect {
+      background: #fee2e2 !important;
+      border-color: #ef4444 !important;
+    }
+    .option-card.incorrect .option-letter {
+      background: #ef4444 !important;
+      color: white !important;
+      border: none !important;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 18px;
+      margin-top: 35px;
+      padding: 0 10px;
+      justify-content: center;
+    }
+    .nav-btn {
+      flex: 1;
+      max-width: 220px;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .prev-btn {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    .prev-btn:hover {
+      background: #e2e8f0;
+    }
+    .next-btn {
+      background: #3b82f6;
+      color: white;
+    }
+    .submit-btn {
+      background: #ef4444;
+      color: white;
+    }
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .result-card {
+      text-align: center;
+      padding: 50px 20px;
+    }
+    .result-title {
+      font-size: 2.2rem;
+      margin-bottom: 25px;
+      color: #1e293b;
+    }
+    .score-display {
+      font-size: 5.5rem;
+      font-weight: 800;
+      color: #1e40af;
+      margin: 25px 0;
+    }
+    .share-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 14px 30px;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 1.2rem;
+      cursor: pointer;
+      margin-top: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .share-btn:hover {
+      background: #2563eb;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      padding: 25px;
+      color: #64748b;
+      font-size: 0.95rem;
+      background: #f8fafc;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+    }
+    .footer small {
+      display: block;
+      margin-top: 12px;
+      font-style: italic;
+      color: #1e40af;
+      font-weight: 600;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: #64748b;
+    }
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="homeScreen" class="screen active">
+      <header>
+        <div class="logo">ExamArena</div>
+        <div class="tagline">Mission 2026 की तैयारी का विश्वसनीय और प्रभावी साथी</div>
+        <div class="mission-badge">📚 Mission 2026</div>
+        <div class="controls">
+          <input type="text" class="search" id="searchInput" placeholder="टेस्ट या कैटेगरी खोजें..." />
+          <button class="mode-toggle" id="modeToggle" onclick="toggleMode()">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+      </header>
+      
+      <div class="categories-grid" id="categoriesGrid">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+      
+      <div class="footer">
+        © <span id="year">2025</span> ExamArena • सभी सरकारी नौकरियों के लिए<br>
+        <small>This website made by Piyush Bharti for Mission 2026 Exam</small>
+      </div>
+    </div>
+
+    <!-- Other screens omitted for brevity but included in full logic below -->
+    
+    <div id="testListScreen" class="screen">
+      <header>
+        <div class="logo" style="font-size:2.2rem;">ExamArena</div>
+        <button onclick="goHome()" style="position:absolute; left:20px; top:25px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; width:38px; height:38px; border-radius:10px; font-size:18px;">←</button>
+      </header>
+      <div id="testListContent" style="padding:25px;"></div>
+    </div>
+
+    <div id="testScreen" class="screen">
+      <div class="test-header">
+        <div class="test-title" id="testTitle"></div>
+        <div>
+          <div id="timerDisplay"></div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="question-card">
+        <div class="question-number">प्रश्न <span id="qNumber">1</span></div>
+        <div class="test-question" id="questionText"></div>
+        
+        <div class="options-grid" id="optionsGrid">
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="nav-btn prev-btn" id="prevBtn" style="display:none;">
+          <i class="fas fa-arrow-left"></i> पिछला
+        </button>
+        <button class="nav-btn next-btn" id="nextBtn">
+          अगला <i class="fas fa-arrow-right"></i>
+        </button>
+        <button class="nav-btn submit-btn" id="submitBtn" style="display:none;">
+          सबमिट <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="resultScreen" class="screen">
+      <div class="result-card">
+        <div class="result-title">आपका परिणाम</div>
+        <div class="score-display" id="scoreDisplay">0/0</div>
+        <div id="resultText" style="font-size:1.3rem; margin:20px 0; color:#475569;"></div>
+        <button class="share-btn" id="shareBtn" onclick="shareResult()">
+          <i class="fab fa-whatsapp"></i> रिजल्ट शेयर करें
+        </button>
+        <button class="nav-btn next-btn" onclick="goHome()" style="margin-top:25px; max-width:260px;">
+          <i class="fas fa-home"></i> होम पर जाएँ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleMode() {
+      alert("डार्क मोड अभी उपलब्ध नहीं है। वेबसाइट पहले से ही एग्जाम-फ्रेंडली लाइट थीम में है।");
+    }
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ✅ FIXED: Firebase config (no changes needed)
+    firebase.initializeApp({
+      apiKey: "AIzaSyAkLZnHOp2-jXMiNzhIwZE-Fgs6OEb89rw",
+      authDomain: "quiz-app-64a74.firebaseapp.com",
+      projectId: "quiz-app-64a74",
+      storageBucket: "quiz-app-64a74.firebasestorage.app",
+      messagingSenderId: "665162938804",
+      appId: "1:665162938804:web:2066494d51f97ec2561ae1"
+    });
+    const db = firebase.firestore();
+
+    let allTests = [];
+    let currentTest = null;
+    let userAnswers = [];
+    let currentQuestionIndex = 0;
+    let timerInterval = null;
+    let timePerQuestion = 90;
+    let timeLeft = timePerQuestion;
+
+    function parseCSV(csvText) {
+      const lines = csvText.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const questions = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const values = [];
+        let inQuotes = false;
+        let current = '';
+        for (const char of line) {
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim());
+        const row = {};
+        headers.forEach((header, idx) => {
+          if (idx < values.length) {
+            row[header] = values[idx].replace(/^"|"$/g, '');
+          }
+        });
+        if (row.Question && row.OptionA && row.OptionB && row.OptionC && row.OptionD && row.Answer) {
+          questions.push({
+            q: row.Question,
+            options: [row.OptionA, row.OptionB, row.OptionC, row.OptionD],
+            correct: row.Answer.trim().toUpperCase()
+          });
+        }
+      }
+      return questions;
+    }
+
+    async function loadHome() {
+      try {
+        const snapshot = await db.collection('tests').get();
+        allTests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderCategories();
+        setupSearch();
+      } catch (e) {
+        document.getElementById('categoriesGrid').innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i><br>
+            टेस्ट लोड नहीं हो सके।<br>
+            <button onclick="loadHome()" style="margin-top:20px; background:#3b82f6; color:white; border:none; padding:12px 24px; border-radius:12px; font-weight:600;">
+              रीट्राई करें
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function renderCategories() {
+      const categories = [...new Set(allTests.map(t => t.category || 'अन्य'))];
+      let html = '';
+
+      html += `
+        <div class="category-card">
+          <div class="category-img" style="background-color: #ffedd5; background-image: none; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-sync-alt" style="font-size:2.5rem; color:#ea580c;"></i>
+          </div>
+          <div class="category-info">
+            <div class="category-title">Daily Test</div>
+            <div class="category-meta">
+              <i class="fas fa-question-circle"></i> 100 प्रश्न • सभी टॉपिक्स से
+            </div>
+            <button class="start-btn" style="background:#ea580c; width:100%;" onclick="startDailyTest()">
+              <i class="fas fa-bolt"></i> शुरू करें
+            </button>
+          </div>
+        </div>
+      `;
+
+      categories.sort();
+      categories.forEach(cat => {
+        const tests = allTests.filter(t => t.category === cat);
+        const totalTests = tests.length;
+        const totalQuestions = tests.reduce((sum, t) => sum + (t.questions?.length || 0), 0);
+        
+        let imageUrl = '';
+        const sampleTest = allTests.find(t => t.category === cat && t.categoryImage);
+        if (sampleTest && sampleTest.categoryImage) {
+          imageUrl = sampleTest.categoryImage;
+        }
+        
+        html += `
+          <div class="category-card">
+            <div class="category-img" style="${imageUrl ? `background-image: url('${imageUrl}');` : 'background-color: #dbeafe;'} background-size: cover; background-position: center;"></div>
+            <div class="category-info">
+              <div class="category-title">${cat}</div>
+              <div class="category-meta">
+                <i class="fas fa-file-alt"></i> ${totalTests} टेस्ट • 
+                <i class="fas fa-question-circle"></i> ${totalQuestions} प्रश्न
+              </div>
+              <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="start-btn" style="flex:1;" onclick="startRandomTest('${cat}')">
+                  <i class="fas fa-random"></i> Start Test
+                </button>
+                <button class="start-btn green" style="flex:1;" onclick="showTests('${cat}')">
+                  <i class="fas fa-folder"></i> Category Test
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      document.getElementById('categoriesGrid').innerHTML = html || 
+        '<div class="empty-state">कोई टेस्ट नहीं मिला</div>';
+    }
+
+    function setupSearch() {
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        if (!term) return renderCategories();
+        
+        const filtered = allTests.filter(test => 
+          test.title.toLowerCase().includes(term) || 
+          (test.category && test.category.toLowerCase().includes(term))
+        );
+        
+        const cats = [...new Set(filtered.map(t => t.category))];
+        let html = '';
+        cats.forEach(cat => {
+          const tests = filtered.filter(t => t.category === cat);
+          const totalTests = tests.length;
+          const totalQuestions = tests.reduce((sum, t) => sum + (t.questions?.length || 0), 0);
+          
+          let imageUrl = '';
+          const sampleTest = tests.find(t => t.categoryImage);
+          if (sampleTest && sampleTest.categoryImage) {
+            imageUrl = sampleTest.categoryImage;
+          }
+          
+          html += `
+            <div class="category-card">
+              <div class="category-img" style="${imageUrl ? `background-image: url('${imageUrl}');` : 'background-color: #dbeafe;'} background-size: cover; background-position: center;"></div>
+              <div class="category-info">
+                <div class="category-title">${cat}</div>
+                <div class="category-meta">
+                  <i class="fas fa-file-alt"></i> ${totalTests} टेस्ट • 
+                  <i class="fas fa-question-circle"></i> ${totalQuestions} प्रश्न
+                </div>
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                  <button class="start-btn" style="flex:1;" onclick="startRandomTest('${cat}')">
+                    <i class="fas fa-random"></i> Start Test
+                  </button>
+                  <button class="start-btn green" style="flex:1;" onclick="showTests('${cat}')">
+                    <i class="fas fa-folder"></i> Category Test
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        document.getElementById('categoriesGrid').innerHTML = html || 
+          '<div class="empty-state">कोई मैच नहीं मिला</div>';
+      });
+    }
+
+    function showTests(category) {
+      const tests = allTests.filter(t => t.category === category);
+      let html = `<h2 style="text-align:center; margin:25px 0; font-size:1.8rem; color:#1e40af;">${category}</h2>`;
+      if (tests.length === 0) {
+        html += '<div class="empty-state">इस कैटेगरी में कोई टेस्ट नहीं है</div>';
+      } else {
+        html += '<div class="categories-grid" style="grid-template-columns:1fr; gap:22px;">';
+        tests.forEach(test => {
+          const isCompleted = localStorage.getItem(`completed_${test.id}`) === 'true';
+          html += `
+            <div class="category-card" style="margin-bottom:20px;" onclick="startTest('${test.id}', ${JSON.stringify(test).replace(/"/g, '&quot;')})">
+              <div class="category-info" style="padding:20px;">
+                <div style="font-weight:700; font-size:1.2rem; margin-bottom:10px; color:#1e293b;">${test.title}</div>
+                <div class="category-meta">
+                  <i class="fas fa-question-circle"></i> ${test.questions?.length || 0} प्रश्न
+                  ${isCompleted ? '<span style="color:#22c55e; font-weight:600;"> • पूर्ण</span>' : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+      document.getElementById('testListContent').innerHTML = html;
+      showScreen('testListScreen');
+    }
+
+    async function startDailyTest() {
+      if (allTests.length === 0) {
+        alert("कोई टेस्ट उपलब्ध नहीं है!");
+        return;
+      }
+
+      let allQuestions = [];
+      allTests.forEach(test => {
+        if (test.questions && test.questions.length > 0) {
+          test.questions.forEach(q => {
+            allQuestions.push({ ...q, source: test.title });
+          });
+        }
+      });
+
+      if (allQuestions.length === 0) {
+        alert("कोई प्रश्न उपलब्ध नहीं है!");
+        return;
+      }
+
+      const totalToPick = Math.min(100, allQuestions.length);
+      const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
+      const selectedQuestions = shuffled.slice(0, totalToPick);
+
+      const dailyTest = {
+        id: 'daily-test-' + Date.now(),
+        title: `Daily Test • ${new Date().toLocaleDateString('hi-IN')}`,
+        category: 'Daily Test',
+        questions: selectedQuestions,
+        duration: 120
+      };
+
+      currentTest = dailyTest;
+      currentQuestionIndex = 0;
+      userAnswers = Array(selectedQuestions.length).fill(null).map(() => ({ answer: null, locked: false }));
+      
+      showScreen('testScreen');
+      renderQuestion(currentQuestionIndex);
+    }
+
+    function startRandomTest(category) {
+      const categoryTests = allTests.filter(t => t.category === category);
+      if (categoryTests.length === 0) {
+        alert("इस कैटेगरी में कोई टेस्ट नहीं है!");
+        return;
+      }
+
+      let allQuestions = [];
+      categoryTests.forEach(test => {
+        if (test.questions && test.questions.length > 0) {
+          test.questions.forEach(q => {
+            allQuestions.push({ ...q, source: test.title });
+          });
+        }
+      });
+
+      if (allQuestions.length === 0) {
+        alert("इस कैटेगरी में कोई प्रश्न नहीं है!");
+        return;
+      }
+
+      const totalToPick = Math.min(100, allQuestions.length);
+      const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
+      const selectedQuestions = shuffled.slice(0, totalToPick);
+
+      const randomTest = {
+        id: `random-${category}-${Date.now()}`,
+        title: `${category} • Random 100`,
+        category: category,
+        questions: selectedQuestions,
+        duration: 120
+      };
+
+      currentTest = randomTest;
+      currentQuestionIndex = 0;
+      userAnswers = Array(selectedQuestions.length).fill(null).map(() => ({ answer: null, locked: false }));
+      
+      showScreen('testScreen');
+      renderQuestion(currentQuestionIndex);
+    }
+
+    function startTest(testId, testData) {
+      currentTest = testData;
+      currentQuestionIndex = 0;
+      
+      const draft = localStorage.getItem(`draft_${testId}`);
+      if (draft) {
+        const draftData = JSON.parse(draft);
+        if (confirm(`आपने पहले यह टेस्ट शुरू किया था। क्या आप पिछले उत्तरों के साथ जारी रखना चाहते हैं?`)) {
+          userAnswers = draftData.answers;
+        } else {
+          userAnswers = Array(currentTest.questions.length).fill(null).map(() => ({ answer: null, locked: false }));
+        }
+      } else {
+        userAnswers = Array(currentTest.questions.length).fill(null).map(() => ({ answer: null, locked: false }));
+      }
+      
+      showScreen('testScreen');
+      renderQuestion(currentQuestionIndex);
+    }
+
+    function renderQuestion(qIndex) {
+      currentQuestionIndex = qIndex;
+      const q = currentTest.questions[qIndex];
+      const total = currentTest.questions.length;
+      
+      document.getElementById('qNumber').textContent = qIndex + 1;
+      document.getElementById('questionText').textContent = q.q;
+      document.getElementById('progressFill').style.width = `${((qIndex + 1) / total) * 100}%`;
+      document.getElementById('testTitle').textContent = currentTest.title;
+      
+      document.getElementById('prevBtn').style.display = qIndex > 0 ? 'block' : 'none';
+      if (qIndex === total - 1) {
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('submitBtn').style.display = 'block';
+      } else {
+        document.getElementById('nextBtn').style.display = 'block';
+        document.getElementById('submitBtn').style.display = 'none';
+      }
+      
+      const optionsContainer = document.getElementById('optionsGrid');
+      optionsContainer.innerHTML = '';
+      q.options.forEach((opt, i) => {
+        const letter = ['A', 'B', 'C', 'D'][i];
+        const userAns = userAnswers[qIndex];
+        let isSelected = false;
+        let isCorrect = false;
+        let showResult = false;
+
+        if (userAns.locked) {
+          showResult = true;
+          isSelected = (userAns.answer === i);
+          const correctIndex = ['A','B','C','D'].indexOf(q.correct);
+          isCorrect = (i === correctIndex);
+        }
+
+        let classes = 'option-card';
+        if (showResult) {
+          if (isCorrect) {
+            classes += ' correct';
+          } else if (isSelected) {
+            classes += ' incorrect';
+          }
+        } else if (userAns.answer === i) {
+          classes += ' selected';
+        }
+        
+        const optionCard = document.createElement('div');
+        optionCard.className = classes;
+        optionCard.innerHTML = `
+          <div class="option-letter">${letter}</div>
+          <div>${opt}</div>
+        `;
+        
+        if (!userAns.locked) {
+          optionCard.onclick = () => selectAnswer(qIndex, i);
+        }
+        
+        optionsContainer.appendChild(optionCard);
+      });
+      
+      localStorage.setItem(`draft_${currentTest.id}`, JSON.stringify({
+        answers: userAnswers,
+        qIndex: qIndex
+      }));
+      
+      if (timerInterval) clearInterval(timerInterval);
+      timeLeft = timePerQuestion;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          if (userAnswers[qIndex].answer === null) {
+            userAnswers[qIndex] = { answer: null, locked: true };
+          }
+          if (qIndex < total - 1) {
+            renderQuestion(qIndex + 1);
+          } else {
+            submitTest();
+          }
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      document.getElementById('timerDisplay').textContent = `⏱️ ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function selectAnswer(qIndex, ansIndex) {
+      if (userAnswers[qIndex].locked) return;
+      userAnswers[qIndex] = { answer: ansIndex, locked: true };
+      renderQuestion(qIndex);
+    }
+
+    document.getElementById('prevBtn').onclick = () => {
+      if (currentQuestionIndex > 0) renderQuestion(currentQuestionIndex - 1);
+    };
+    document.getElementById('nextBtn').onclick = () => {
+      if (userAnswers[currentQuestionIndex].answer === null) {
+        if (!confirm("आपने इस प्रश्न का उत्तर नहीं दिया। क्या आप अगले प्रश्न पर जाना चाहते हैं?")) {
+          return;
+        }
+      }
+      renderQuestion(currentQuestionIndex + 1);
+    };
+    document.getElementById('submitBtn').onclick = submitTest;
+
+    function submitTest() {
+      if (timerInterval) clearInterval(timerInterval);
+      
+      let correct = 0;
+      const total = currentTest.questions.length;
+      for (let i = 0; i < total; i++) {
+        const q = currentTest.questions[i];
+        const correctIndex = ['A','B','C','D'].indexOf(q.correct);
+        if (userAnswers[i].answer !== null && userAnswers[i].answer === correctIndex) {
+          correct++;
+        }
+      }
+      
+      localStorage.setItem(`completed_${currentTest.id}`, 'true');
+      localStorage.removeItem(`draft_${currentTest.id}`);
+      
+      document.getElementById('scoreDisplay').textContent = `${correct}/${total}`;
+      const percentage = Math.round((correct / total) * 100);
+      let resultText = "";
+      if (percentage >= 90) resultText = "उत्कृष्ट! 🎯";
+      else if (percentage >= 70) resultText = "अच्छा प्रदर्शन! 👍";
+      else if (percentage >= 50) resultText = "ठीक है, और अभ्यास करें।";
+      else resultText = "थोड़ा और प्रयास की आवश्यकता है।";
+      document.getElementById('resultText').textContent = `${resultText} (${percentage}%)`;
+      
+      showScreen('resultScreen');
+    }
+
+    function shareResult() {
+      const score = document.getElementById('scoreDisplay').textContent;
+      const text = `मैंने ExamArena पर अपना Mission 2026 टेस्ट दिया!\nस्कोर: ${score}\n\n#ExamArena #Mission2026`;
+      if (navigator.share) {
+        navigator.share({ text, url: window.location.href });
+      } else {
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + window.location.href)}`;
+        window.open(whatsappUrl, '_blank');
+      }
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function goHome() {
+      showScreen('homeScreen');
+    }
+
+    loadHome();
+  </script>
+</body>
+</html>
