@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ExamArena Admin</title>
+  <!-- Firebase SDKs - NO TRAILING SPACES -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', sans-serif }
+    body {
+      background: #f8fafc;
+      color: #1e293b;
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 280px;
+      background: white;
+      border-right: 1px solid #e2e8f0;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .main-content {
+      flex: 1;
+      padding: 24px;
+    }
+    header {
+      background: #1e40af;
+      color: white;
+      padding: 16px;
+      text-align: center;
+      margin: -24px -24px 24px -24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 1.5rem;
+    }
+    .category-item, .test-item {
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .category-name, .test-title {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .category-count {
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .delete-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .form-group input, .form-group button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    .form-group button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .form-group button:hover {
+      background: #2563eb;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-weight: 500;
+    }
+    .success { background: #dcfce7; color: #166534; }
+    .error { background: #fee2e2; color: #b91c1c; }
+    .note {
+      background: #dbeafe;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #1e40af;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 0;
+      color: #94a3b8;
+    }
+    .mode-indicator {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2 style="margin-bottom:20px; color:#1e40af; text-align:center;">
+      <span id="sidebarTitle">कैटेगरीज़</span>
+      <span id="backButton" style="float:right; cursor:pointer; color:#3b82f6; display:none;" onclick="goBack()">⬅️</span>
+    </h2>
+    <div id="listContainer">
+      <div class="empty-state">लोड हो रहा है...</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <header>
+      <div>
+        <h1>ExamArena • एडमिन पैनल</h1>
+      </div>
+      <div id="modeInfo" class="mode-indicator">कैटेगरी व्यू</div>
+    </header>
+
+    <div class="form-group">
+      <label for="category">कैटेगरी</label>
+      <input type="text" id="category" placeholder="जैसे: Lucent GK" />
+
+      <label for="categoryImage">कैटेगरी इमेज URL (वैकल्पिक)</label>
+      <input type="url" id="categoryImage" placeholder="https://example.com/image.jpg" />
+
+      <label for="title">टेस्ट का नाम</label>
+      <input type="text" id="title" placeholder="जैसे: Lucent Chapter 1" />
+
+      <label for="csv">CSV या TXT फ़ाइल</label>
+      <input type="file" id="csv" accept=".csv,.txt" />
+
+      <button onclick="createTest()">टेस्ट बनाएँ</button>
+
+      <div id="status"></div>
+
+      <div class="note">
+        <strong>CSV फॉर्मेट:</strong><br>
+        पहली पंक्ति: <code>question,optionA,optionB,optionC,optionD,correct</code><br>
+        उदाहरण: <code>"2+2?", "3", "4", "5", "6", "B"</code><br><br>
+        <strong>TXT फॉर्मेट:</strong><br>
+        6 लाइनें प्रति प्रश्न:<br>
+        1. प्रश्न<br>
+        2–5. विकल्प A, B, C, D<br>
+        6. सही उत्तर (A/B/C/D)
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ SECURITY NOTE: Remove or secure delete functionality in production!
+    const ADMIN_PASSWORD = "12345";
+
+    let currentView = 'categories';
+    let currentCategory = null;
+
+    // 🔥 Firebase Config (Your Project)
+    firebase.initializeApp({
+      apiKey: "AIzaSyAkLZnHOp2-jXMiNzhIwZE-Fgs6OEb89rw",
+      authDomain: "quiz-app-64a74.firebaseapp.com",
+      projectId: "quiz-app-64a74",
+      storageBucket: "quiz-app-64a74.firebasestorage.app",
+      messagingSenderId: "665162938804",
+      appId: "1:665162938804:web:2066494d51f97ec2561ae1"
+    });
+    const db = firebase.firestore();
+
+    // ✅ CSV Parser
+    function parseCSV(csvText) {
+      const lines = csvText.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) return [];
+      const questions = [];
+      for (let i = 1; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+        const values = [];
+        let inQuotes = false;
+        let current = '';
+        for (const char of line) {
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current);
+        if (values.length >= 6) {
+          const q = values[0].replace(/^"|"$/g, '').trim();
+          const options = [
+            values[1].replace(/^"|"$/g, '').trim(),
+            values[2].replace(/^"|"$/g, '').trim(),
+            values[3].replace(/^"|"$/g, '').trim(),
+            values[4].replace(/^"|"$/g, '').trim()
+          ];
+          const correct = values[5].replace(/^"|"$/g, '').trim().toUpperCase();
+          if (q && options.every(opt => opt) && ['A','B','C','D'].includes(correct)) {
+            questions.push({ q, options, correct });
+          }
+        }
+      }
+      return questions;
+    }
+
+    // ✅ TXT Parser (6 lines per question)
+    function parseTXT(txtText) {
+      const lines = txtText.split('\n').map(l => l.trim()).filter(l => l !== '');
+      const questions = [];
+      for (let i = 0; i < lines.length; i += 6) {
+        if (i + 5 >= lines.length) break;
+        const q = lines[i];
+        const options = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+        const correct = lines[i+5].toUpperCase();
+        if (q && options.every(opt => opt) && ['A','B','C','D'].includes(correct)) {
+          questions.push({ q, options, correct });
+        }
+      }
+      return questions;
+    }
+
+    // 🚀 Create Test (supports .csv and .txt)
+    async function createTest() {
+      const category = document.getElementById('category').value.trim();
+      const categoryImage = document.getElementById('categoryImage').value.trim();
+      const title = document.getElementById('title').value.trim();
+      const file = document.getElementById('csv').files[0];
+      const statusDiv = document.getElementById('status');
+
+      if (!category || !title || !file) {
+        statusDiv.className = 'status error';
+        statusDiv.innerText = "⚠️ सभी फ़ील्ड्स अनिवार्य हैं।";
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        let questions = [];
+
+        if (file.name.endsWith('.csv')) {
+          questions = parseCSV(text);
+        } else if (file.name.endsWith('.txt')) {
+          questions = parseTXT(text);
+        } else {
+          throw new Error("केवल .csv या .txt फ़ाइलें समर्थित हैं।");
+        }
+
+        if (questions.length === 0) throw new Error("कोई वैध प्रश्न नहीं मिला।");
+
+        const testData = {
+          category,
+          title,
+          questions,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (categoryImage) testData.categoryImage = categoryImage;
+
+        await db.collection('tests').add(testData);
+        statusDiv.className = 'status success';
+        statusDiv.innerText = `✅ टेस्ट "${title}" (${category}) में जोड़ दिया गया!`;
+
+        // Reset form
+        document.getElementById('category').value = '';
+        document.getElementById('categoryImage').value = '';
+        document.getElementById('title').value = '';
+        document.getElementById('csv').value = '';
+
+        // Refresh sidebar
+        if (currentView === 'categories') {
+          loadCategories();
+        } else if (currentView === 'tests' && category === currentCategory) {
+          loadTestsForCategory(currentCategory);
+        }
+      } catch (err) {
+        statusDiv.className = 'status error';
+        statusDiv.innerText = "❌ त्रुटि: " + (err.message || "अज्ञात त्रुटि");
+      }
+    }
+
+    // ===== Sidebar Navigation =====
+    async function loadCategories() {
+      currentView = 'categories';
+      currentCategory = null;
+      document.getElementById('sidebarTitle').textContent = 'कैटेगरीज़';
+      document.getElementById('backButton').style.display = 'none';
+      document.getElementById('modeInfo').textContent = 'कैटेगरी व्यू';
+
+      const listDiv = document.getElementById('listContainer');
+      try {
+        const snapshot = await db.collection('tests').get();
+        if (snapshot.empty) {
+          listDiv.innerHTML = '<div class="empty-state">कोई कैटेगरी नहीं मिली</div>';
+          return;
+        }
+
+        const categoryMap = {};
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (categoryMap[data.category]) {
+            categoryMap[data.category].count++;
+          } else {
+            categoryMap[data.category] = { count: 1 };
+          }
+        });
+
+        let html = '';
+        Object.keys(categoryMap).sort().forEach(cat => {
+          const { count } = categoryMap[cat];
+          html += `
+            <div class="category-item" onclick="showTestsForCategory('${cat}')">
+              <div>
+                <div class="category-name">${cat}</div>
+                <div class="category-count">${count} टेस्ट${count > 1 ? '्स' : ''}</div>
+              </div>
+              <button class="delete-btn" onclick="deleteCategory(event, '${cat}')">×</button>
+            </div>
+          `;
+        });
+        listDiv.innerHTML = html;
+      } catch (err) {
+        listDiv.innerHTML = `<div class="empty-state">लोड नहीं हो सका</div>`;
+      }
+    }
+
+    async function showTestsForCategory(category) {
+      currentView = 'tests';
+      currentCategory = category;
+      document.getElementById('sidebarTitle').textContent = category;
+      document.getElementById('backButton').style.display = 'inline';
+      document.getElementById('modeInfo').textContent = 'टेस्ट व्यू';
+      loadTestsForCategory(category);
+    }
+
+    async function loadTestsForCategory(category) {
+      const listDiv = document.getElementById('listContainer');
+      try {
+        const snapshot = await db.collection('tests').where('category', '==', category).get();
+        if (snapshot.empty) {
+          listDiv.innerHTML = '<div class="empty-state">इस कैटेगरी में कोई टेस्ट नहीं है</div>';
+          return;
+        }
+
+        let html = '';
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          html += `
+            <div class="test-item">
+              <div class="test-title">${data.title}</div>
+              <button class="delete-btn" onclick="deleteTest('${doc.id}')">×</button>
+            </div>
+          `;
+        });
+        listDiv.innerHTML = html;
+      } catch (err) {
+        listDiv.innerHTML = `<div class="empty-state">टेस्ट लोड नहीं हो सके</div>`;
+      }
+    }
+
+    function goBack() {
+      loadCategories();
+    }
+
+    // ===== Delete Functions (Use with Caution!) =====
+    async function deleteCategory(e, category) {
+      e.stopPropagation();
+      const password = prompt("इस कैटेगरी को हटाने के लिए पासवर्ड दर्ज करें:");
+      if (password !== ADMIN_PASSWORD) {
+        alert("❌ गलत पासवर्ड!");
+        return;
+      }
+
+      if (!confirm(`क्या आप वाकई "${category}" कैटेगरी और इसके सभी टेस्ट्स को हटाना चाहते हैं?`)) {
+        return;
+      }
+
+      try {
+        const snapshot = await db.collection('tests').where('category', '==', category).get();
+        const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
+        await Promise.all(deletePromises);
+        alert(`✅ "${category}" कैटेगरी हटा दी गई!`);
+        loadCategories();
+      } catch (err) {
+        alert("❌ डिलीट करने में त्रुटि: " + err.message);
+      }
+    }
+
+    async function deleteTest(testId) {
+      if (!confirm("क्या आप वाकई इस टेस्ट को हटाना चाहते हैं?")) return;
+      try {
+        await db.collection('tests').doc(testId).delete();
+        alert("टेस्ट हटा दिया गया!");
+        if (currentView === 'tests') {
+          loadTestsForCategory(currentCategory);
+        } else {
+          loadCategories();
+        }
+      } catch (err) {
+        alert("हटाने में त्रुटि: " + err.message);
+      }
+    }
+
+    // Start
+    loadCategories();
+  </script>
+</body>
+</html>
